@@ -26,8 +26,9 @@ pipeline {
             steps {
                 script {
                     sh """
-                    ansible-playbook -i 65.0.101.94, --private-key=/var/lib/jenkins/.ssh/id_rsa \
-                    deploy-war.yml --extra-vars "war_file=target/my-app.war tomcat_webapps_dir=/usr/share/tomcat/webapps/"
+                    ansible-playbook -i 65.0.101.94, --private-key=/home/ansible/.ssh/id_rsa \
+                    /home/ansible/deploy-war.yml --extra-vars 'war_file=/root/Portfolio-webapp/target/web-app.war tomcat_webapps_dir=/usr/share/tomcat/webapps/'
+
                     """
                 }
             }
@@ -51,7 +52,7 @@ pipeline {
         stage('Deploy to Docker Container') {
             steps {
                 sh """
-                ssh -i /var/lib/jenkins/.ssh/id_rsa ec2-user@your-remote-server-ip 'docker run -d --name my-app-container -p 8080:8080 my-app:latest'
+                ssh -i /var/lib/jenkins/.ssh/id_rsa ec2-user@65.0.101.94 'docker run -d --name my-app-container -p 8080:8080 my-app:latest'
                 """
             }
         }
