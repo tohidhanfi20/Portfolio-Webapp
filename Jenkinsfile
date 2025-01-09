@@ -35,7 +35,7 @@ pipeline {
                     // Ensure Ansible deploys the WAR file correctly
                     sh """
                     ansible-playbook -i 65.0.101.94, --private-key=/home/ansible/.ssh/id_rsa \
-                    /home/ansible/deploy-war.yml --extra-vars 'war_file=${WAR_FILE} tomcat_webapps_dir=/usr/local/tomcat/webapps/'
+                    /home/ansible/deploy-war.yml --extra-vars 'war_file=${WAR_FILE} tomcat_container_name=${TOMCAT_CONTAINER_NAME}'
                     """
                 }
             }
