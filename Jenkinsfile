@@ -26,12 +26,6 @@ pipeline {
             }
         }
 
-        stage('Build with Maven') {
-            steps {
-                sh 'mvn clean install'
-            }
-        }
-
         stage('Deploy WAR using Ansible') {
             steps {
                 script {
