@@ -26,12 +26,18 @@ pipeline {
             }
         }
 
+        stage('Build with Maven') {
+            steps {
+                sh 'mvn clean install'
+            }
+        }
+
         stage('Deploy WAR using Ansible') {
             steps {
                 script {
                     sh """
                     ansible-playbook -i 65.0.101.94, --private-key=/home/ansible/.ssh/id_rsa \
-                    /home/ansible/deploy-war.yml --extra-vars 'war_file=${WAR_FILE} tomcat_container_name=${TOMCAT_CONTAINER_NAME}'
+                    /home/ansible/deploy-war.yml --extra-vars 'war_file=$WAR_FILE tomcat_webapps_dir=/usr/local/tomcat/webapps/'
                     """
                 }
             }
@@ -46,8 +52,8 @@ pipeline {
         stage('Push Docker Image') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    sh "echo $DOCKER_PASSWORD | docker login -u $DOCKER_USER --password-stdin ${DOCKER_REGISTRY}"
-                    sh 'docker push ${DOCKER_REGISTRY}/web-app:latest'
+                    sh "echo $DOCKER_PASSWORD | docker login -u $DOCKER_USER --password-stdin $DOCKER_REGISTRY"
+                    sh 'docker push $DOCKER_REGISTRY/web-app:latest'
                 }
             }
         }
@@ -55,7 +61,7 @@ pipeline {
         stage('Deploy to Docker Container') {
             steps {
                 sh """
-                docker run -d --name ${TOMCAT_CONTAINER_NAME} -p 8081:8080 web-app:latest
+                ssh -i /var/lib/jenkins/.ssh/id_rsa ec2-user@65.0.101.94 'docker run -d --name $TOMCAT_CONTAINER_NAME -p 8082:8082 web-app:latest'
                 """
             }
         }
