@@ -1,6 +1,12 @@
 pipeline {
     agent any
 
+    environment {
+        WAR_FILE = '/var/lib/jenkins/workspace/Portfolio-webapp/target/web-app.war'
+        TOMCAT_CONTAINER_NAME = 'web-app-container'
+        DOCKER_REGISTRY = 'docker.io/tohidaws'
+    }
+
     stages {
         stage('Pull Code from GitHub') {
             steps {
@@ -26,48 +32,50 @@ pipeline {
         stage('Deploy WAR using Ansible') {
             steps {
                 script {
-                    // Run Ansible to deploy the WAR file
+                    // Ensure Ansible deploys the WAR file correctly
                     sh """
                     ansible-playbook -i 65.0.101.94, --private-key=/home/ansible/.ssh/id_rsa \
-                    /home/ansible/deploy-war.yml --extra-vars 'war_file=/root/Portfolio-webapp/target/web-app.war tomcat_webapps_dir=/usr/share/tomcat/webapps/'
+                    /home/ansible/deploy-war.yml --extra-vars 'war_file=${WAR_FILE} tomcat_webapps_dir=/usr/local/tomcat/webapps/'
                     """
                 }
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Build Docker Image for Tomcat') {
             steps {
-                // Build the Docker image
-                sh 'docker build -t web-app:latest .'
+                script {
+                    // Build the Docker image using the Dockerfile in the repository
+                    sh 'docker build -t web-app:latest .'
+                }
             }
         }
 
-        stage('Push Docker Image') {
+        stage('Push Docker Image to Registry') {
             steps {
-                // Push the Docker image to the Docker registry
                 withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    sh """
-                    echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USER --password-stdin your-docker-registry-url
-                    docker push your-docker-registry-url/web-app:latest
-                    """
+                    // Log in to Docker registry and push the image
+                    sh "echo $DOCKER_PASSWORD | docker login -u $DOCKER_USER --password-stdin ${DOCKER_REGISTRY}"
+                    sh 'docker push ${DOCKER_REGISTRY}/web-app:latest'
                 }
             }
         }
 
         stage('Deploy to Docker Container') {
-    steps {
-        sh """
-        ssh -i /var/lib/jenkins/.ssh/id_rsa ec2-user@65.0.101.94 \
-        'docker run -d --name web-app-container -p 8081:8080 web-app:latest'
-        """
+            steps {
+                script {
+                    // Deploy the Docker container on the remote EC2 instance
+                    sh """
+                    ssh -i /var/lib/jenkins/.ssh/id_rsa ec2-user@65.0.101.94 \
+                    'docker run -d --name ${TOMCAT_CONTAINER_NAME} -p 8080:8080 ${DOCKER_REGISTRY}/web-app:latest'
+                    """
                 }
-             }
-
+            }
         }
+    }
 
     post {
         always {
-            // Clean up Docker system
+            // Clean up unused Docker images
             sh 'docker system prune -f'
         }
     }
