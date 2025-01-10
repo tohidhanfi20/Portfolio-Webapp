@@ -1,0 +1,13 @@
+---
+- name: Remove container, remove image, and run container
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Remove the container if it exists
+      shell: docker rm -f my_container || true
+
+    - name: Remove the image if it exists
+      shell: docker rmi -f my_image_name || true
+
+    - name: Run the Docker container
+      shell: docker run -d --name my_container -p 8080:8080 my_image_name
