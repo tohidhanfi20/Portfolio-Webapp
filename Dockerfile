@@ -8,7 +8,7 @@ LABEL maintainer="tohidhanfi.com"
 COPY target/my-app.war /usr/local/tomcat/webapps/
 
 # Expose the port Tomcat will be running on
-EXPOSE 8080
+EXPOSE 8082
 
 # Start Tomcat when the container runs
 CMD ["catalina.sh", "run"]
