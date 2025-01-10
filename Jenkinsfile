@@ -9,7 +9,7 @@ pipeline {
         stage('Checkout Code from GitHub') {
             steps {
                 // Checkout code from GitHub
-                git credentialsId: 'git-cred', url: 'https://github.com/tohidhanfi20/Portfolio-Webapp.git'
+                git credentialsId: 'git-cred', url: 'https://github.com/tohidhanfi20/Portfolio-Webapp.git', branch: 'main'
             }
         }
         
