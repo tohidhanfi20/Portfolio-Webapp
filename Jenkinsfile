@@ -1,61 +1,66 @@
 pipeline {
     agent any
+    
     environment {
-        WAR_NAME = "web-app.war"
-        ANSIBLE_SERVER = "localhost"
+        WAR_NAME = 'web-app.war'  // Name of your WAR file
     }
+
     stages {
-        stage('Checkout Code') {
+        stage('Checkout Code from GitHub') {
             steps {
-                git branch: 'main', url: 'https://github.com/your-username/your-repo.git'
+                // Checkout code from GitHub
+                git credentialsId: 'git-cred', url: 'https://github.com/tohidhanfi20/Portfolio-Webapp.git'
             }
         }
-
-        stage('Build WAR') {
+        
+        stage('Build WAR with Maven') {
             steps {
-                sh 'mvn clean package'
-            }
-            post {
-                success {
-                    archiveArtifacts artifacts: 'target/*.war', fingerprint: true
+                // Run Maven build to generate WAR file
+                script {
+                    sh 'mvn clean package'  // This will generate target/web-app.war
                 }
             }
         }
 
-        stage('Copy WAR to Docker Context') {
+        stage('Copy WAR to Root Directory') {
             steps {
-                sshPublisher(publishers: [
-                    sshPublisherDesc(
-                        configName: ANSIBLE_SERVER,
-                        transfers: [
-                            sshTransfer(
-                                sourceFiles: "target/${WAR_NAME}",
-                                removePrefix: "target",
-                                remoteDirectory: "/tmp"
-                            )
-                        ]
-                    )
-                ])
-                sh '''
-                ansible-playbook deploy-war.yml -i localhost,
-                '''
+                // Copy WAR file to root directory for Ansible deployment
+                script {
+                    sh "cp target/${WAR_NAME} /root/"
+                }
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Deploy WAR to Tomcat with Ansible') {
             steps {
-                sh '''
-                docker build -t web-app-image .
-                '''
+                // Run Ansible playbook to deploy WAR file to Tomcat
+                script {
+                    sh '''
+                    ansible-playbook /opt/ansible/deploy-war.yml -i localhost,
+                    '''
+                }
             }
         }
 
-        stage('Run Docker Container') {
+        stage('Docker Deployment') {
             steps {
-                sh '''
-                docker run -d -p 8081:8080 --name web-app-container web-app-image
-                '''
+                // Use Docker to deploy the WAR file (assuming your Dockerfile is at the root)
+                script {
+                    sh '''
+                    docker build -t tomcat-app .
+                    docker run -d -p 8082:8080 --name tomcat-container tomcat-app
+                    '''
+                }
             }
+        }
+    }
+    
+    post {
+        success {
+            echo 'Pipeline executed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed!'
         }
     }
 }
