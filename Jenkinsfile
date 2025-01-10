@@ -1,69 +1,61 @@
 pipeline {
     agent any
-
     environment {
-        WAR_FILE = '/var/lib/jenkins/workspace/Portfolio-webapp/target/web-app.war'
-        TOMCAT_CONTAINER_NAME = 'web-app-container'
-        DOCKER_REGISTRY = 'docker.io/tohidaws'
+        WAR_NAME = "web-app.war"
+        ANSIBLE_SERVER = "localhost"
     }
-
     stages {
-        stage('Pull Code from GitHub') {
+        stage('Checkout Code') {
             steps {
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: '*/main']],
-                    userRemoteConfigs: [
-                        [url: 'https://github.com/tohidhanfi20/Portfolio-Webapp.git', credentialsId: 'github-cred']
-                    ]
-                ])
+                git branch: 'main', url: 'https://github.com/your-username/your-repo.git'
             }
         }
 
-        stage('Build with Maven') {
+        stage('Build WAR') {
             steps {
-                sh 'mvn clean install'
+                sh 'mvn clean package'
             }
-        }
-
-        stage('Deploy WAR using Ansible') {
-            steps {
-                script {
-                    sh """
-                    ansible-playbook -i 65.0.101.94, --private-key=/home/ansible/.ssh/id_rsa \
-                    /home/ansible/deploy-war.yml --extra-vars 'war_file=$WAR_FILE tomcat_webapps_dir=/usr/local/tomcat/webapps/'
-                    """
+            post {
+                success {
+                    archiveArtifacts artifacts: 'target/*.war', fingerprint: true
                 }
+            }
+        }
+
+        stage('Copy WAR to Docker Context') {
+            steps {
+                sshPublisher(publishers: [
+                    sshPublisherDesc(
+                        configName: ANSIBLE_SERVER,
+                        transfers: [
+                            sshTransfer(
+                                sourceFiles: "target/${WAR_NAME}",
+                                removePrefix: "target",
+                                remoteDirectory: "/tmp"
+                            )
+                        ]
+                    )
+                ])
+                sh '''
+                ansible-playbook deploy-war.yml -i localhost,
+                '''
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t web-app:latest .'
+                sh '''
+                docker build -t web-app-image .
+                '''
             }
         }
 
-        stage('Push Docker Image') {
+        stage('Run Docker Container') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    sh "echo $DOCKER_PASSWORD | docker login -u $DOCKER_USER --password-stdin $DOCKER_REGISTRY"
-                    sh 'docker push $DOCKER_REGISTRY/web-app:latest'
-                }
+                sh '''
+                docker run -d -p 8081:8080 --name web-app-container web-app-image
+                '''
             }
-        }
-
-        stage('Deploy to Docker Container') {
-            steps {
-                sh """
-                ssh -i /var/lib/jenkins/.ssh/id_rsa ec2-user@65.0.101.94 'docker run -d --name $TOMCAT_CONTAINER_NAME -p 8082:8082 web-app:latest'
-                """
-            }
-        }
-    }
-
-    post {
-        always {
-            sh 'docker system prune -f'
         }
     }
 }
